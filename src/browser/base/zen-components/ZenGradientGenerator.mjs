@@ -443,24 +443,38 @@
 
     getToolbarModifiedBase() {
       return this.isDarkMode
-        ? 'color-mix(in srgb, var(--zen-themed-toolbar-bg) 80%, #fff 20%)'
-        : 'color-mix(in srgb, var(--zen-themed-toolbar-bg) 95%, #000 5%)';
+        ? `color-mix(in srgb, ${this.themeToolbar} 80%, #fff 20%)`
+        : `color-mix(in srgb, ${this.themeToolbar} 95%, #000 5%)`;
+    }
+
+    get themeToolbarTransparent() {
+      if (window.matchMedia('(-moz-windows-mica) or (-moz-platform: macos)').matches) {
+        return 'transparent';
+      }
+      return this.isDarkMode ? 'rgb(22, 22, 22)' : 'rgb(235, 235, 235)';
+    }
+
+    get themeToolbar() {
+      return this.isDarkMode ? '#161616' : '#ebebeb';
     }
 
     getSingleRGBColor(color, forToolbar = false) {
       if (color.isCustom) {
-        return color.c;
+        return `color-mix(in srgb, ${color.c} 50%, ${color.c} 50%)`;
       }
-      const toolbarBg = forToolbar ? this.getToolbarModifiedBase() : 'var(--zen-themed-toolbar-bg-transparent)';
+      const toolbarBg = forToolbar ? this.getToolbarModifiedBase() : this.themeToolbarTransparent;
       return `color-mix(in srgb, rgb(${color.c[0]}, ${color.c[1]}, ${color.c[2]}) ${this.currentOpacity * 100}%, ${toolbarBg} ${(1 - this.currentOpacity) * 100}%)`;
     }
 
     getGradient(colors, forToolbar = false) {
       const themedColors = this.themedColors(colors);
       if (themedColors.length === 0) {
-        return forToolbar ? 'var(--zen-themed-toolbar-bg)' : 'var(--zen-themed-toolbar-bg-transparent)';
+        const color = forToolbar ? this.themeToolbar : this.themeToolbarTransparent;
+        // Leave it like this, so it can animate
+        return `linear-gradient(0deg, color-mix(in srgb, ${color} 50%, ${color} 50%), color-mix(in srgb, ${color} 50%, ${color} 50%))`;
       } else if (themedColors.length === 1) {
-        return this.getSingleRGBColor(themedColors[0], forToolbar);
+        const color = this.getSingleRGBColor(themedColors[0], forToolbar);
+        return `linear-gradient(0deg, ${color}, ${color})`;
       }
       return `linear-gradient(${this.currentRotation}deg, ${themedColors.map((color) => this.getSingleRGBColor(color, forToolbar)).join(', ')})`;
     }
@@ -595,29 +609,6 @@
           }
         }
 
-        const appWrapper = browser.document.getElementById('browser');
-        if (!skipUpdate && !this._animatingBackground) {
-          this._animatingBackground = true;
-          appWrapper.removeAttribute('animating');
-          browser.document.documentElement.style.setProperty(
-            '--zen-main-browser-background-old',
-            browser.document.documentElement.style.getPropertyValue('--zen-main-browser-background')
-          );
-          browser.window.requestAnimationFrame(() => {
-            appWrapper.setAttribute('animating', 'true');
-            setTimeout(() => {
-              this._animatingBackground = false;
-              appWrapper.removeAttribute('animating');
-              appWrapper.setAttribute('post-animating', 'true');
-              browser.document.documentElement.style.removeProperty('--zen-main-browser-background-old');
-              setTimeout(() => {
-                // Reactivate the transition after the animation
-                appWrapper.removeAttribute('post-animating');
-              }, 100);
-            }, 500);
-          });
-        }
-
         browser.gZenThemePicker.resetCustomColorList();
         if (!workspaceTheme || workspaceTheme.type !== 'gradient') {
           const gradient = browser.gZenThemePicker.getGradient([]);
@@ -651,8 +642,25 @@
           }
         }
 
-        browser.document.documentElement.style.setProperty('--zen-main-browser-background-toolbar', gradientToolbar);
-        browser.document.documentElement.style.setProperty('--zen-main-browser-background', gradient);
+        if (!skipUpdate && !this._animatingBackground) {
+          const beforeBackground = browser.document.documentElement.style.getPropertyValue('--zen-main-browser-background');
+          const beforeBackgroundToolbar = browser.document.documentElement.style.getPropertyValue(
+            '--zen-main-browser-background-toolbar'
+          );
+          gZenUIManager.motion.animate(browser.document.documentElement, {
+            '--zen-main-browser-background': [beforeBackground, gradient],
+          }, {
+            duration: .3,
+          });
+          gZenUIManager.motion.animate(browser.document.documentElement, {
+            '--zen-main-browser-background-toolbar': [beforeBackgroundToolbar, gradientToolbar],
+          }, {
+            duration: .3,
+          });
+        } else {
+          browser.document.documentElement.style.setProperty('--zen-main-browser-background-toolbar', gradientToolbar);
+          browser.document.documentElement.style.setProperty('--zen-main-browser-background', gradient);
+        }
 
         const dominantColor = this.getMostDominantColor(workspaceTheme.gradientColors);
         if (dominantColor) {

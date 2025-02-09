@@ -47,15 +47,6 @@
     transition: background-color var(--inactive-window-transition);
   }
 
-  @media (-moz-bool-pref: 'zen.theme.gradient') {
-    &[animating='true']::after {
-      background: var(--zen-main-browser-background-old);
-      backdrop-filter: blur(5px);
-      animation: zen-main-app-wrapper-animation 0.5s ease forwards;
-      transition: 0s;
-    }
-  }
-
   @media (not (-moz-windows-mica)) and (-moz-bool-pref: 'zen.view.grey-out-inactive-windows') {
     transition: color var(--inactive-window-transition);
     &:-moz-window-inactive {
